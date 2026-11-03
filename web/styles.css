@@ -66,3 +66,5 @@ body[data-page="execution"] footer{display:none}
 
 /* Optional practice sits below the completed viewer, before detailed logs. */
 .practice{max-width:var(--link-max);margin-top:var(--s8);padding-top:var(--s6);border-top:var(--stroke) solid var(--border)}.practice>p{color:var(--muted)}.practice-steps{padding-left:var(--s6);margin:var(--s6) 0;display:grid;gap:var(--s4)}.practice .actions{margin-bottom:var(--s4)}
+
+.experiment-preview{display:block;max-width:100%;width:756px;height:auto}#experimental-case figure{margin:var(--s4) 0}#experimental-case figcaption{color:var(--muted);font-size:14px}

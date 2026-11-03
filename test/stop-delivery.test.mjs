@@ -41,10 +41,10 @@ test('Stop before delivery and commit failure never replace prior proof',()=>fol
  assert.equal(await fs.readFile(path.join(dir,'result.json'),'utf8'),prior);assert.deepEqual(await fs.readdir(dir),['result.json']);assert.notEqual(run.status,'complete');
 }));
 test('successful delivery commits the same proof and completion once',()=>folder(async dir=>{
- const run=new LocalRun('delivery-success');run.dir=dir;const proof={passed:true,checks:['Verified original bytes']};
+ const run=new LocalRun('delivery-success');run.dir=dir;run.failure='Earlier repaired overflow';const proof={passed:true,checks:['Verified original bytes']};
  await deliverCheckedResult(run,proof,'Ready');
  assert.deepEqual(JSON.parse(await fs.readFile(path.join(dir,'result.json'))),proof);
- assert.equal(run.status,'complete');assert.deepEqual(run.checks,proof.checks);assert.equal(run.events.filter(e=>e.status==='complete').length,1);
+ assert.equal(run.status,'complete');assert.equal(run.failure,null);assert.equal(run.events.find(e=>e.status==='complete').failure,null);assert.deepEqual(run.checks,proof.checks);assert.equal(run.events.filter(e=>e.status==='complete').length,1);
 }));
 
 test('delivery cleanup never removes a staging path it did not create',()=>folder(async dir=>{

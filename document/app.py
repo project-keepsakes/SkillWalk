@@ -28,8 +28,8 @@ def record(name,data):
     temp=WORK/(name+".tmp");temp.write_text(json.dumps(data,ensure_ascii=False,indent=2));temp.replace(WORK/name)
 
 st.set_page_config(page_title="SkillWalk | Ask your PDF",page_icon="📄",layout="wide")
-st.title("Ask your PDF")
-st.caption("Local Gemma | text, tables and charts | a reproduction of Nariman Codes' tutorial")
+st.title(CONFIG.get("title", "Ask your PDF"))
+st.caption(CONFIG.get("caption", "Local Gemma | text, tables and charts | a reproduction of Nariman Codes' tutorial"))
 with st.expander("Your sample document and workflow"):
     st.download_button("Download sample PDF",SAMPLE.read_bytes(),"skillwalk-sample.pdf","application/pdf")
     st.write("High-resolution PDF extraction -> Gemma image/table descriptions -> 1000-character chunks with 200 overlap -> local embeddings -> in-memory retrieval -> Gemma answers.")
@@ -99,7 +99,7 @@ def index_document(pdf_bytes,model_name,settings_hash):
             native_match=len(labels)>=3 and all(re.search(r"\b"+re.escape(label)+r"\b",native_pdf.get(meta.get("page"),""),re.IGNORECASE) for label in labels)
             corpus.append({"text":caption,"page":meta.get("page"),"kind":"Gemma description of "+meta.get("category","unclassified image/table crop"),"category":meta.get("category"),"figure":figure.name,"indexed":not (meta.get("category")=="Table" and native_match and len(native_tables.get(meta.get("page"),[]))==1 and len([f for f in crops if f.name.startswith("table-"+str(meta.get("page"))+"-")])==1)})
         corpus_file.write_text(json.dumps(corpus,ensure_ascii=False))
-    splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=200,add_start_index=True)
+    splitter=RecursiveCharacterTextSplitter(chunk_size=CONFIG.get("chunkSize", 1000),chunk_overlap=CONFIG.get("chunkOverlap", 200),add_start_index=True)
     for part in corpus:
         if not part.get("indexed",True):continue
         for chunk in splitter.split_text(part["text"]):
@@ -150,7 +150,7 @@ if question:
     with st.chat_message("assistant"):
         with st.spinner("Retrieving document evidence and asking local Gemma"):
             related=store.similarity_search(question,k=8)
-            instructions=CONFIG["answerInstruction"]+" Answer only the requested question. If the context has no evidence about the requested topic, say I do not know. Never substitute unrelated document numbers. Prefer extracted PDF text/table evidence over a conflicting model-derived description. Use three sentences maximum."
+            instructions=CONFIG["answerInstruction"]+" Answer only the requested question. If the context has no evidence that answers the requested question, respond with exactly: I do not know. In that unsupported case, add no summary of unrelated context, explanation, or other facts. When the retrieved evidence does answer the question, give that supported answer directly; do not append an unsupported-question refusal to it. Never substitute unrelated document numbers. Prefer extracted PDF text/table evidence over a conflicting model-derived description. Use three sentences maximum."
             budget=6000-len((instructions+question).encode("utf-8"))
             if budget<512:st.error("Shorten the question to leave room for document evidence.");st.stop()
             sent=[];passages=[];used=0

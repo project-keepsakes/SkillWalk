@@ -13,7 +13,7 @@ import {LocalRun} from '../src/ui-runner.mjs';
 test('document is featured without retiring existing tutorials; custom URLs are honestly unreviewed',()=>{
  assert.equal(tutorials[0].id,documentId);assert.equal(tutorials.length,3);
  assert.equal(reviewedTutorial('372Iksaz8b0').kind,'presentation');assert.equal(reviewedTutorial('DVlHZufvP10').kind,'website');
- assert.equal(compatibilityFor('abcdefghijk').available,false);assert.match(compatibilityFor('abcdefghijk').message,/not a claim that it is impossible/);
+ assert.equal(compatibilityFor('abcdefghijk').available,true);assert.match(compatibilityFor('abcdefghijk').message,/actual source requirements/);
  assert.match(compatibilityFor('372Iksaz8b0').message,/Claude/);assert.match(compatibilityFor(documentId).message,/27B/);
 });
 test('document execution metadata never becomes a slide workflow or cover-repair stage',()=>{
@@ -117,4 +117,18 @@ test('chart answer cannot pass just by mentioning the expected number while deny
  assert.equal(checkDocumentAnswer(0,{answer:'The chart shows the tourism receipts of Germany, not its population. Germany has a bar reaching 80 million. I do not know the population of Germany.',evidence}),false);
  assert.equal(checkDocumentAnswer(0,{answer:'I do not know the population. A value of 80 million is shown.',evidence}),false);
  assert.equal(checkDocumentAnswer(0,{answer:'Germany has approximately 80 million people. I do not know the year.',evidence}),true);
+});
+
+test('featured recipes and unfamiliar execution have explicit separate routes',()=>{
+ for(const entry of tutorials){const route=compatibilityFor(entry.id);assert.equal(route.kind,entry.kind);assert.equal(route.pipeline,'featured-v1');assert.equal(route.featured,true);}
+ const route=compatibilityFor('abcdefghijk');assert.equal(route.kind,'generic');assert.equal(route.pipeline,'shared-v1');assert.equal(route.featured,false);
+});
+
+test('supported document answers cannot append an unqualified refusal',()=>{
+ const evidence=[{kind:'Gemma description of Image',text:'Germany 80 million; Egypt 100 million'},{kind:'Table',text:'United States 332 million'}];
+ assert.equal(checkDocumentAnswer(0,{answer:'Germany has 80 million people. I do not know.',evidence}),false);
+ const answer='United States has 332 million people. Egypt has 100 million. United States has a larger population than Egypt.';
+ assert.equal(checkDocumentAnswer(1,{answer,evidence}),true);
+ assert.equal(checkDocumentAnswer(1,{answer:answer+' I do not know.',evidence}),false);
+ assert.equal(checkDocumentAnswer(0,{answer:'Germany has 80 million people. I do not know the year.',evidence}),true);
 });

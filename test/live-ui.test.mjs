@@ -10,7 +10,7 @@ test('countdown pauses without elapsed hidden time and fires once',()=>{let now=
 
 test('only canonical public YouTube URLs are accepted',()=>{assert.equal(tutorialId('https://youtu.be/372Iksaz8b0'),'372Iksaz8b0');for(const u of ['http://127.0.0.1/video','https://youtube.com.evil.test/watch?v=372Iksaz8b0','https://evil@youtube.com/watch?v=372Iksaz8b0'])assert.throws(()=>tutorialId(u));});
 
-test('loopback API blocks foreign origins, unknown tutorials and unverified results',async()=>{
+test('loopback API rejects unsupported release tutorials and blocks foreign origins and unverified results',async()=>{
  const root=path.resolve(import.meta.dirname,'..');
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'skillwalk-api-'));
  let app;
@@ -26,19 +26,26 @@ test('loopback API blocks foreign origins, unknown tutorials and unverified resu
   }));
   const bytes=Buffer.from('0123456789abcdef'.repeat(8));
   await fs.writeFile(path.join(source,'tutorial.mp4'),bytes);
+  const unknownSource=path.join(dir,'.artifacts/sources/abcdefghijk');await fs.mkdir(unknownSource,{recursive:true});await fs.writeFile(path.join(unknownSource,'metadata.json'),JSON.stringify({id:'abcdefghijk',url:'https://www.youtube.com/watch?v=abcdefghijk',title:'Unseen fixture',creator:'Fixture',duration:60}));
   const {createApp}=await import(pathToFileURL(path.join(dir,'src/server.mjs')).href);
-  app=createApp({restore:false});
+  let dispatched;app=createApp({restore:false,runFactory:(kind,id,notify,tutorial)=>{dispatched={kind,tutorial};return{id,kind,tutorialId:tutorial,status:'review',view(){return this},async analyze(){},async saveWorkspace(){}}}});
   await new Promise(r=>app.listen(0,'127.0.0.1',r));
   const origin='http://127.0.0.1:'+app.address().port;
   const html=await(await fetch(origin)).text();
   const token=html.match(/name="skillwalk-token" content="([a-f0-9]+)"/)[1];
   const headers={origin,'x-skillwalk-token':token,'content-type':'application/json'};
   assert.equal((await fetch(origin+'/api/preview',{method:'POST',headers:{...headers,origin:'https://evil.test'},body:'{}'})).status,403);
-  const unknown=await fetch(origin+'/api/preview',{method:'POST',headers,body:JSON.stringify({url:'https://youtu.be/abcdefghijk'})});
-  assert.equal(unknown.status,200);
-  assert.equal((await unknown.json()).compatibility.available,false);
-  const rejected=await fetch(origin+'/api/analyze',{method:'POST',headers,body:JSON.stringify({url:'https://youtu.be/abcdefghijk'})});
-  assert.equal(rejected.status,400);
+  for(const tutorial of ['abcdefghijk','nkluXCISryk']){
+    const request={method:'POST',headers,body:JSON.stringify({url:'https://youtu.be/'+tutorial})};
+    assert.equal((await fetch(origin+'/api/preview',request)).status,422);
+    assert.equal((await fetch(origin+'/api/analyze',request)).status,422);
+    assert.equal(dispatched,undefined);
+  }
+  for (const [tutorial,kind] of [['372Iksaz8b0','presentation'], ['DVlHZufvP10','website'], ['hBDNv47KCKo','document']]) {
+    await new Promise(resolve => setImmediate(resolve));
+    const response = await fetch(origin+'/api/analyze', {method:'POST', headers, body:JSON.stringify({url:'https://youtu.be/'+tutorial})});
+    assert.equal(response.status,202); assert.deepEqual(dispatched,{kind,tutorial});
+  }
   const valid=await fetch(origin+'/api/preview',{method:'POST',headers,body:JSON.stringify({url:'https://youtu.be/372Iksaz8b0'})});
   assert.equal((await valid.json()).creator,'Controlled creator');
   assert.equal((await fetch(origin+'/api/result?id=missing')).status,409);

@@ -1,12 +1,30 @@
 export function normalizeHTML(text){return text.trim().replace(/^```(?:html)?\s*/i,'').replace(/\s*```$/,'');}
 
+// Only strip comments from an unambiguous leading head stylesheet. Other HTML
+// contexts stay conservative: a <style> string in script, title, attributes or
+// comments must never hide active markup from the policy scan.
+function withoutStyleComments(html){
+ return html.replace(/^(\s*(?:<!doctype\s+html\s*>\s*)?<html(?=[\t\n\f\r />])(?:[^"'<>]|"[^"]*"|'[^']*')*>\s*<head>\s*(?:(?:<meta(?=[\t\n\f\r />])(?:[^"'<>]|"[^"]*"|'[^']*')*>|<title>[^<]*<\/title>)\s*)*<style(?=[\t\n\f\r />])(?:[^"'<>]|"[^"]*"|'[^']*')*>)((?:(?!<\/style(?=[\t\n\f\r />]))[\s\S])*)(<\/style\s*>)/i,(_,open,css,close)=>{
+  let out='',quote=null;
+  for(let i=0;i<css.length;i++){
+   const c=css[i];
+   if(quote){out+=c;if(c==='\\'&&i+1<css.length)out+=css[++i];else if(c===quote)quote=null;continue;}
+   if(c==='\\'&&i+1<css.length){out+=c+css[++i];continue;}
+   if(c==='"'||c==="'"){quote=c;out+=c;continue;}
+   if(c==='/'&&css[i+1]==='*'){const end=css.indexOf('*/',i+2);if(end<0)break;i=end+1;out+=' ';continue;}
+   out+=c;
+  }
+  return open+out+close;
+ });
+}
+
 export function artifactIssues(html){
 
  const issues=[];
 
  if(!/^<!doctype html>|^<html/i.test(html)||!/<\/html>\s*$/i.test(html))issues.push('Return a complete standalone HTML document.');
 
- const checked=html.replaceAll('http://www.w3.org/2000/svg','');const bad=checked.split('\n').filter(line=>/<(iframe|object|embed)\b|<script[^>]+src\s*=|https?:\/\/|@import|fetch\s*\(|XMLHttpRequest|WebSocket|window\.open|location\s*=/i.test(line));
+ const checked=withoutStyleComments(html).replaceAll('http://www.w3.org/2000/svg','');const bad=checked.split('\n').filter(line=>/<(iframe|object|embed)\b|<script[^>]+src\s*=|https?:\/\/|@import|fetch\s*\(|XMLHttpRequest|WebSocket|window\.open|location\s*=/i.test(line));
 
  if(activeAttributes(html))issues.push('Unsupported active HTML attributes.');
  if(bad.length)issues.push('Unsupported network/embedding markup. Remove external stylesheet links entirely; Licensed fonts are embedded by the host. Do not replace links with another URL. Offending lines: '+bad.join(' '));
