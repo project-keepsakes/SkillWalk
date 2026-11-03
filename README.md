@@ -74,6 +74,8 @@ The single-service configuration is supported by the code; the full end-to-end c
 
 Setup builds `skillwalk-document:local` and prepares the version-matched, hash-verified browser sandbox profile. It fails explicitly if an existing profile has changed. It does not disable sandboxing or change Windows security policies. Later starts reuse the local runtime and caches.
 
+The document image builds `unstructured==0.27.34+filelock4.2.7` from a checksum-pinned upstream wheel. Its Python code and license files are unchanged; the local wheel updates only the version, Filelock requirement and wheel inventory so normal dependency resolution can select the patched Filelock release. The builder rejects unexpected upstream metadata. Audit this local package against upstream Unstructured 0.27.34 as well as auditing the full installed environment. To run the offline wheel-integrity and locking regressions, bind-mount the checkout read-only at `/checkout` in the document image, set its working directory to `/checkout`, then run `python -m unittest discover -s document -p 'test_*compat*.py'`. The tests are not bundled in the image. These checks and a freshly generated PDF passed with retained extraction weights; a complete new model acquisition was not repeated.
+
 ## Fourth tutorial: experimental case study
 
 The [Javascript Simple Counter tutorial by Timothy Unkert](https://www.youtube.com/watch?v=nkluXCISryk) is preserved as an experiment, not a fourth supported workflow. A development run executed and matched the pinned creator implementation in browser state replay. Automatic verification against the video remained unsuccessful or inconclusive.
